@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+# python train.py --config configs/brown.yaml
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", type=str, default="configs/brown.yaml")
 args = parser.parse_args()
