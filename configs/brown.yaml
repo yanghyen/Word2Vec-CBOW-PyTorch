@@ -1,0 +1,8 @@
+dataset: brown         
+vocab_size: 30000
+embedding_dim: 100
+window_size: 2
+batch_size: 512
+lr: 0.003
+epochs: 10
+seed: 42
