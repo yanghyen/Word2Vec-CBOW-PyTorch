@@ -1,4 +1,4 @@
-# eval_analysis.py
+# src/eval.py
 import torch
 import argparse
 import yaml
@@ -6,7 +6,7 @@ import numpy as np
 import time
 from collections import Counter
 from data import load_corpus, build_vocab
-from src.model import CBOW
+from model import CBOW  # src 안에 있으므로 상대경로 import
 
 # -------------------------------
 # 1. Config 불러오기
@@ -42,12 +42,16 @@ print(f"Checkpoint '{args.checkpoint}' 로드 완료")
 # 4. 헬퍼 함수
 # -------------------------------
 def get_embedding(word):
+    """단어 임베딩 벡터 반환 (1D array)"""
     if word not in word2idx:
         return None
     idx = torch.tensor([word2idx[word]]).to(device)
-    return model.embeddings(idx).detach().cpu().numpy()
+    return model.embeddings(idx).detach().cpu().numpy().squeeze()
 
 def cosine_similarity(vec1, vec2):
+    """1D 벡터에 대해 코사인 유사도 계산"""
+    vec1 = vec1.flatten()
+    vec2 = vec2.flatten()
     return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
 
 def most_similar(word, topk=5):
@@ -58,7 +62,10 @@ def most_similar(word, topk=5):
     for w in vocab:
         if w == word:
             continue
-        sims[w] = cosine_similarity(emb, get_embedding(w))
+        other_emb = get_embedding(w)
+        if other_emb is None:
+            continue
+        sims[w] = cosine_similarity(emb, other_emb)
     return sorted(sims.items(), key=lambda x: x[1], reverse=True)[:topk]
 
 def analogy(word_a, word_b, word_c, topk=1):
@@ -70,7 +77,10 @@ def analogy(word_a, word_b, word_c, topk=1):
     for w in vocab:
         if w in [word_a, word_b, word_c]:
             continue
-        sims[w] = cosine_similarity(target_vec, get_embedding(w))
+        other_emb = get_embedding(w)
+        if other_emb is None:
+            continue
+        sims[w] = cosine_similarity(target_vec, other_emb)
     return sorted(sims.items(), key=lambda x: x[1], reverse=True)[:topk]
 
 # -------------------------------
@@ -99,7 +109,8 @@ def measure_resources():
     torch.cuda.reset_peak_memory_stats()
     start_time = time.time()
     # 단순 전체 vocab 임베딩 조회 (샘플 연산)
-    _ = [get_embedding(w) for w in vocab[:5000]]
+    vocab_list = list(vocab)
+    _ = [get_embedding(w) for w in vocab_list[:5000]]
     elapsed = time.time() - start_time
     peak_mem = torch.cuda.max_memory_allocated() / (1024**2)  # MB
     print(f"Elapsed time: {elapsed:.2f}s, Peak GPU memory: {peak_mem:.2f} MB")
@@ -123,7 +134,6 @@ if __name__ == "__main__":
             print(f"{sw}: {sim:.4f}")
 
     # Analogy 평가
-    # 예시 데이터: [(a,b,c,d_true), ...]
     analogy_testset = [
         ("man", "king", "woman", "queen"),
         ("paris", "france", "berlin", "germany"),
@@ -137,3 +147,4 @@ if __name__ == "__main__":
 
     # GPU 시간/메모리 측정
     measure_resources()
+
