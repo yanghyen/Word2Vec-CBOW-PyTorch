@@ -1,9 +1,25 @@
+from collections import Counter
+import random
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 import nltk
 from nltk.corpus import brown
 import requests, zipfile, io
+
+def subsample_text(text, t=1e-5):
+    counter = Counter(text)
+    total_count = len(text)
+    freqs = {word: count / total_count for word, count in counter.items()}
+
+    subsampled = []
+    for word in text:
+        f = freqs[word]
+        p_drop = 1 - (t / f) ** 0.5
+        if random.random() > p_drop:
+            subsampled.append(word)
+    return subsampled
 
 def load_corpus(name="brown"):
     """
@@ -27,7 +43,10 @@ def load_corpus(name="brown"):
     return text
 
 def build_vocab(text):
-    tokens = text.lower().split()
+    if isinstance(text, str):
+        tokens = text.lower().split()
+    else:
+        tokens = text
     vocab = set(tokens)
     word2idx = {word: i for i, word in enumerate(vocab)}
     idx2word = {i: word for word, i in word2idx.items()}

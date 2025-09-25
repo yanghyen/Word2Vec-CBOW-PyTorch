@@ -1,4 +1,4 @@
-from data import load_corpus, build_vocab, get_dataloader
+from data import load_corpus, build_vocab, get_dataloader, subsample_text
 from model import CBOW
 
 import argparse
@@ -13,7 +13,7 @@ import torch.optim as optim
 
 # python train.py --config configs/brown.yaml
 parser = argparse.ArgumentParser()
-parser.add_argument("--config", type=str, default="configs/brown.yaml")
+parser.add_argument("--config", type=str, default="configs/subsample-on_window-2_epoch-50.yaml")
 args = parser.parse_args()
 
 with open(args.config, "r") as f:
@@ -31,9 +31,15 @@ def set_seed(seed):
 set_seed(config["seed"])
 
 text = load_corpus(config["dataset"])
+
+if config["subsample"] == "on":
+    text = subsample_text(text, t=1e-5)
+
 vocab, word2idx, idx2word = build_vocab(text)
 dataloader = get_dataloader(config, word2idx)
 
+subsample = config["subsample"]
+window = config["window_size"]
 embedding_dim = config["embedding_dim"]
 vocab_size = len(vocab)
 model = CBOW(vocab_size, embedding_dim)
@@ -65,8 +71,15 @@ for epoch in range(1, num_epoch + 1):
         total_loss += loss.item()
 
     print(f"Epoch {epoch} / {num_epoch}, Loss: {total_loss:.4f}")
-
+    
     if epoch % 10 == 0 or epoch == num_epoch:
-        checkpoint_path = os.path.join(checkpoint_dir, f"cbow_epoch{epoch}.pth")
-        torch.save(model.state_dict(), checkpoint_path)
-        print(f"Checkpoint saved: {checkpoint_path}")
+        checkpoint_name = f"subsample-{subsample}_window-{window}_epoch-{epoch}.pth"
+        checkpoint_path = os.path.join(checkpoint_dir, checkpoint_name)
+
+        torch.save({
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": total_loss,
+            "config": config,
+        }, checkpoint_path)
